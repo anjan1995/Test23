@@ -249,3 +249,190 @@
     - Do NOT mix unusual and notable activity
     - Do NOT invent missing data
     - Do NOT output instructions in narrative
+    - 
+
+
+
+
+
+
+
+
+
+
+
+
+    gpt text
+
+
+
+
+Generate a complete SAR recommendation narrative using the following data:
+
+{{input_data}}
+
+{{template}}
+
+**Instructions:**
+
+1. Use ONLY the provided JSON data. Do NOT infer, fabricate, estimate, or assume values.
+2. Section order: Alerting Activity / Reason for Review, Scope of Review, Summary of the Investigation, Conclusion (with blank lines between sections).
+3. Never reference JSON field names in the output. Use only human-readable narrative.
+4. Never output placeholder text such as "N/A", "No data", or technical field names.
+
+---
+
+**Alerting Activity / Reason for Review:**
+
+- Output: "{ItemId}: {Account Type(s) and Number(s)} alerted in {Alerting Month(s)} for {alerting reason}."
+- Account Type(s) and Number(s): Extract from alertingAccounts[].
+- Alerting Month(s): Extract MM/YYYY from alertingAccounts[].alertingDates (use earliest date as reference).
+- Alerting reason: Extract customLanguage from alertingTxnsSummary.credit[] and alertingTxnsSummary.debit[]. Combine and deduplicate.
+
+If priorSARs[] exists:
+Append: "There was a prior SAR (ID: {id}) filed on {filingDate} for {amountReported} involving {subject names} for {reason}."
+If priorSARs[] is missing or empty, omit this portion.
+
+---
+
+**Scope of Review:**
+
+- Output: "{fromDate} to {toDate}" in MM/DD/YYYY format from scopeOfReview object.
+
+---
+
+**Summary of the Investigation (Red Flags, Supporting Evidence, etc.):**
+
+Output subsections in this order with blank lines between each:
+
+Who:
+- Describe account types, numbers, opening date, location, customer name, occupation, employer, and customer since date using accounts[] and subjects[].
+
+---
+
+When/What:
+
+STRICT DATA SOURCE RULE:
+
+Use ONLY numeric totals from:
+accounts[].unusualTxnsSummary.credit[].total
+accounts[].unusualTxnsSummary.debit[].total
+
+DO NOT use amounts from:
+- notableActivity[]
+- priorSARs[]
+- transaction-level records
+- alerting summaries
+- any other arrays or fields
+
+Array presence does NOT indicate activity.
+Activity exists ONLY if the numeric total > 0.
+Zero totals must be treated as non-existent.
+
+Step 1:
+Calculate total_credit = sum of all unusualTxnsSummary.credit[].total across all accounts.
+
+Step 2:
+Calculate total_debit = sum of all unusualTxnsSummary.debit[].total across all accounts.
+
+Step 3:
+If total_credit = 0 AND total_debit = 0,
+Output exactly:
+"No reportable unusual transaction activity was identified during the review period."
+Do not generate grouping text.
+
+Step 4:
+If activity exists,
+Group transactions ONLY from unusualTxnsSummary by exact combination of:
+- transaction type
+- customLanguage
+
+For each unique group:
+group_total = sum of matching totals across all accounts.
+
+Exclude groups where group_total = 0.
+Do NOT merge different transaction types.
+Do NOT merge different customLanguage values.
+
+Step 5:
+The sum of all group_total values MUST equal:
+total_credit + total_debit.
+If not equal, recalculate using ONLY unusualTxnsSummary values.
+
+Date range:
+Use earliest minTransactionDate and latest maxTransactionDate from unusualTxnsSummary only.
+
+---
+
+Notable Activity (if applicable):
+
+If accounts[].notableActivity[] exists and contains items:
+Describe notable activity grouped by type/customLanguage.
+
+IMPORTANT:
+Notable Activity amounts must NEVER be included in:
+- When/What totals
+- SAR total
+- Credit/Debit determination
+
+If notableActivity is missing or empty, omit this subsection.
+
+---
+
+Where/How (if applicable):
+
+For CASH or CHECK transactions:
+List locations if they exist.
+
+For other transaction types (Wire, ACH, RTP, POS, etc.):
+For CREDIT transactions: entity represents sender/remitter.
+For DEBIT transactions: entity represents receiver/beneficiary.
+
+Only include locations or entities if they contain data.
+If none exist, omit this subsection.
+
+---
+
+Why:
+
+"The activity is unusual because"
+Follow with analysis[] items as a numbered list.
+If analysis[] is missing or empty, output:
+"The activity is unusual based on the patterns identified during review."
+
+---
+
+**Conclusion:**
+
+Calculate SAR total using ONLY:
+total_credit + total_debit
+(from unusualTxnsSummary only)
+
+Determine source of funds using ONLY total_credit and total_debit:
+
+If total_credit > 0 AND total_debit = 0:
+Use phrase: "derived from credits"
+
+If total_credit = 0 AND total_debit > 0:
+Use phrase: "derived from debits"
+
+If total_credit > 0 AND total_debit > 0:
+Use phrase: "derived from credits and debits"
+
+Never use:
+- "and/or"
+- "both" unless both totals > 0
+- debit amounts from notableActivity
+
+Output:
+"In conclusion, a SAR is recommended to report unusual {transaction type(s)} activity involving USB account {account number(s)} and subject {subject name(s)}. The unusual activity totaled ${SAR total} {derived phrase} between {date range}."
+
+---
+
+Formatting Rules:
+
+- Join multiple values with commas and "and" before final item.
+- Format all currency values with commas and two decimals.
+- Ensure all dates are in MM/DD/YYYY format.
+- Do NOT output JSON structures or technical references.
+    
