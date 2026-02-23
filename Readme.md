@@ -13,3 +13,41 @@
     - IF both are 0 or empty → Output: "No unusual credit or debit activity identified."
   
   Use ONLY the determined value above. Do NOT say "credits and debits" if only credits or only debits exist.
+
+
+
+
+
+
+  WHEN/WHAT CALCULATION RULES (STRICT DATA SOURCE CONTROL):
+
+1. Use ONLY values inside:
+   accounts[].unusualTxnsSummary.credit[]
+   accounts[].unusualTxnsSummary.debit[]
+
+2. DO NOT use any amounts from:
+   - notableActivity[]
+   - priorSARs[]
+   - transaction-level records
+   - any other arrays or fields
+   - previously calculated SAR total
+
+3. For grouping:
+
+   For each unique combination of:
+   - transaction type
+   - customLanguage
+
+   Calculate:
+
+   group_total = sum of "total" values 
+   ONLY from unusualTxnsSummary.credit[] and unusualTxnsSummary.debit[]
+   across ALL accounts
+   where:
+       type matches
+       AND customLanguage matches
+
+4. DO NOT combine different customLanguage values into one group.
+5. DO NOT infer or estimate totals.
+6. DO NOT include zero-value totals.
+7. If no unusualTxnsSummary data exists, OMIT the entire When/What section.
